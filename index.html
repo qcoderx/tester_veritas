@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veritas AI - Live Test Client</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #e0e0e0; display: flex; justify-content: center; align-items: flex-start; padding: 2rem; min-height: 100vh; margin: 0; }
+        .container { width: 100%; max-width: 800px; background-color: #1e1e1e; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); overflow: hidden; }
+        .header { background-color: #333; padding: 1rem 1.5rem; border-bottom: 1px solid #444; }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .main-content { padding: 1.5rem; }
+        .form-section, .status-section, .results-section { margin-bottom: 2rem; border-bottom: 1px solid #333; padding-bottom: 1.5rem; }
+        .form-section:last-child, .status-section:last-child, .results-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        h2 { color: #bb86fc; margin-top: 0; border-bottom: 1px solid #373737; padding-bottom: 0.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        input[type="text"], input[type="email"], input[type="password"], textarea { width: 100%; padding: 0.75rem; border-radius: 4px; border: 1px solid #444; background-color: #2c2c2c; color: #e0e0e0; font-size: 1rem; box-sizing: border-box; margin-bottom: 1rem; }
+        textarea { min-height: 100px; resize: vertical; }
+        .file-drop-area { border: 2px dashed #444; border-radius: 4px; padding: 2rem; text-align: center; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+        .file-drop-area.dragover { background-color: #333; border-color: #bb86fc; }
+        button { padding: 0.75rem 1.5rem; border-radius: 4px; border: none; background-color: #bb86fc; color: #121212; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+        button:disabled { background-color: #555; cursor: not-allowed; color: #888; }
+        button:hover:not(:disabled) { background-color: #a06de5; }
+        .hidden { display: none; }
+        .spinner { border: 4px solid #444; border-top: 4px solid #bb86fc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 1rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #status-messages, #upload-progress { margin-top: 1rem; background-color: #2c2c2c; padding: 1rem; border-radius: 4px; }
+        .progress-bar { width: 100%; background-color: #444; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-bar-inner { width: 0%; height: 10px; background-color: #bb86fc; transition: width 0.3s; }
+        .result-card { background-color: #2c2c2c; border-radius: 4px; padding: 1.5rem; }
+        .result-card h3 { margin-top: 0; }
+        .risk-score { font-size: 3rem; font-weight: bold; text-align: center; margin: 1rem 0; }
+        .risk-score.high { color: #cf6679; }
+        .risk-score.medium { color: #f2c75a; }
+        .risk-score.low { color: #03dac6; }
+        #risk-factors ul { list-style-type: none; padding: 0; }
+        #risk-factors li { background-color: #373737; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; }
+        #copilot-section { margin-top: 2rem; }
+        #copilot-chatbox { height: 200px; overflow-y: auto; border: 1px solid #444; padding: 1rem; margin-bottom: 1rem; background-color: #222; border-radius: 4px; }
+        #copilot-chatbox p { margin: 0 0 0.5rem 0; word-wrap: break-word; }
+        .user-msg { text-align: right; color: #e0e0e0; }
+        .ai-msg { text-align: left; color: #bb86fc; }
+        .auth-toggle { color: #bb86fc; cursor: pointer; text-decoration: underline; margin-top: 1rem; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header"><h1>Veritas AI - Live Test Client</h1></div>
+        <div class="main-content">
+
+            <div id="auth-section" class="form-section">
+                <div id="login-form">
+                    <h2>1. Login</h2>
+                    <label for="login-email">Username (Email):</label>
+                    <input type="email" id="login-email" value="bola@example.com">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" value="password123">
+                    <button id="login-btn">Login</button>
+                    <p><a href="#" id="show-signup" class="auth-toggle">Don't have an account? Sign Up</a></p>
+                </div>
+                <div id="signup-form" class="hidden">
+                    <h2>1. Sign Up</h2>
+                    <label for="signup-name">Full Name:</label>
+                    <input type="text" id="signup-name" value="Bola Adjuster">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password">
+                    <button id="signup-btn">Sign Up</button>
+                    <p><a href="#" id="show-login" class="auth-toggle">Already have an account? Login</a></p>
+                </div>
+            </div>
+
+            <div id="claim-section" class="form-section hidden">
+                <h2>2. Submit New Claim</h2>
+                <label for="additional-info">Additional Info / Adjuster's Notes:</label>
+                <textarea id="additional-info" placeholder="Add any extra context or suspicions here..."></textarea>
+                <div id="file-drop-area" class="file-drop-area">
+                    <p>Drag & Drop files here, or click to select.</p>
+                    <input type="file" id="file-input" multiple hidden>
+                </div>
+                <div id="file-list"></div>
+                <div id="submission-controls" class="hidden" style="margin-top: 1rem;">
+                    <button id="create-claim-btn">Create Claim & Upload Files</button>
+                </div>
+            </div>
+
+            <div id="status-section" class="status-section hidden">
+                <h2>3. Processing Status</h2>
+                <div id="status-messages"></div>
+                <div id="upload-progress" class="hidden">
+                    <p>Uploading files...</p>
+                    <div class="progress-bar"><div id="progress-bar-inner" class="progress-bar-inner"></div></div>
+                </div>
+                <div id="analysis-spinner" class="spinner hidden"></div>
+                <div id="analysis-controls" class="hidden" style="margin-top: 1rem;">
+                    <button id="trigger-analysis-btn">Run Final Analysis</button>
+                </div>
+            </div>
+
+            <div id="results-section" class="results-section hidden">
+                <h2>4. Analysis Complete</h2>
+                <div class="result-card">
+                    <h3>Fraud Risk Report</h3>
+                    <div id="risk-score" class="risk-score"></div>
+                    <div id="summary"></div>
+                    <div id="risk-factors"><h4>Key Risk Factors:</h4><ul></ul></div>
+                </div>
+                <div id="copilot-section">
+                    <h3>AI Co-pilot</h3>
+                    <div id="copilot-chatbox"></div>
+                    <textarea id="copilot-input" placeholder="Ask a question about the claim..."></textarea>
+                    <button id="copilot-send-btn" style="margin-top: 0.5rem;">Send</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = "https://veritas-ai-backend-db28.onrender.com/api/v1";
+
+        let accessToken = null;
+        let selectedFiles = [];
+        let currentClaimId = null;
+
+        // DOM Elements
+        const authSection = document.getElementById('auth-section');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const claimSection = document.getElementById('claim-section');
+        const statusSection = document.getElementById('status-section');
+        const resultsSection = document.getElementById('results-section');
+        
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const showSignup = document.getElementById('show-signup');
+        const showLogin = document.getElementById('show-login');
+
+        const fileDropArea = document.getElementById('file-drop-area');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const submissionControls = document.getElementById('submission-controls');
+        const createClaimBtn = document.getElementById('create-claim-btn');
+        const statusMessages = document.getElementById('status-messages');
+        const uploadProgress = document.getElementById('upload-progress');
+        const progressBarInner = document.getElementById('progress-bar-inner');
+        const analysisSpinner = document.getElementById('analysis-spinner');
+        const analysisControls = document.getElementById('analysis-controls');
+        const triggerAnalysisBtn = document.getElementById('trigger-analysis-btn');
+
+        const copilotSendBtn = document.getElementById('copilot-send-btn');
+        const copilotInput = document.getElementById('copilot-input');
+        
+        // Event Listeners
+        showSignup.addEventListener('click', (e) => { e.preventDefault(); loginForm.classList.add('hidden'); signupForm.classList.remove('hidden'); });
+        showLogin.addEventListener('click', (e) => { e.preventDefault(); signupForm.classList.add('hidden'); loginForm.classList.remove('hidden'); });
+        
+        loginBtn.addEventListener('click', handleLogin);
+        signupBtn.addEventListener('click', handleSignup);
+        
+        fileDropArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => fileDropArea.addEventListener(eventName, preventDefaults, false));
+        ['dragenter', 'dragover'].forEach(eventName => fileDropArea.addEventListener(eventName, () => fileDropArea.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(eventName => fileDropArea.addEventListener(eventName, () => fileDropArea.classList.remove('dragover'), false));
+        fileDropArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+        
+        createClaimBtn.addEventListener('click', handleCreateClaimAndUpload);
+        triggerAnalysisBtn.addEventListener('click', handleTriggerAnalysis);
+        
+        copilotSendBtn.addEventListener('click', handleCopilotQuery);
+        copilotInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleCopilotQuery();
+            }
+        });
+
+        // Functions
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        function displayStatus(message, isError = false) { statusMessages.innerHTML = `<p style="color: ${isError ? '#cf6679' : '#03dac6'};">${message}</p>`; }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            if (selectedFiles.length > 0) {
+                const list = document.createElement('ul');
+                selectedFiles.forEach((file, i) => {
+                    const item = document.createElement('li');
+                    item.textContent = `${i + 1}. ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                    list.appendChild(item);
+                });
+                fileList.appendChild(list);
+                submissionControls.classList.remove('hidden');
+            } else {
+                submissionControls.classList.add('hidden');
+            }
+        }
+
+        function handleFiles(files) {
+            selectedFiles = [...files];
+            updateFileList();
+        }
+
+        async function handleSignup() {
+            const fullName = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name: fullName, email: email, password: password })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Sign up failed.');
+                }
+
+                alert('Sign up successful! Please log in.');
+                showLogin.click();
+
+            } catch(error) {
+                alert(`Sign Up Error: ${error.message}`);
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Login failed.');
+                }
+                const data = await response.json();
+                accessToken = data.access_token;
+                authSection.classList.add('hidden');
+                claimSection.classList.remove('hidden');
+            } catch (error) {
+                alert(`Login Error: ${error.message}`);
+            }
+        }
+
+        async function handleCreateClaimAndUpload() {
+            createClaimBtn.disabled = true;
+            createClaimBtn.textContent = 'Processing...';
+
+            const payload = {
+                file_count: selectedFiles.length,
+                additional_info: document.getElementById('additional-info').value
+            };
+
+            try {
+                const createResponse = await fetch(`${API_BASE_URL}/claims/`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!createResponse.ok) {
+                    const error = await createResponse.json();
+                    throw new Error(error.detail || 'Failed to create claim.');
+                }
+                const { claim_id, upload_urls } = await createResponse.json();
+                currentClaimId = claim_id;
+
+                claimSection.classList.add('hidden');
+                statusSection.classList.remove('hidden');
+                displayStatus(`Claim ${claim_id} created. Uploading ${selectedFiles.length} files...`);
+
+                uploadProgress.classList.remove('hidden');
+                const uploadPromises = upload_urls.map((urlData, i) => {
+                    const formData = new FormData();
+                    Object.keys(urlData.fields).forEach(key => formData.append(key, urlData.fields[key]));
+                    formData.append('file', selectedFiles[i]);
+                    return fetch(urlData.url, { method: 'POST', body: formData });
+                });
+
+                let uploadedCount = 0;
+                uploadPromises.forEach(p => p.then(() => {
+                    uploadedCount++;
+                    progressBarInner.style.width = `${(uploadedCount / selectedFiles.length) * 100}%`;
+                }));
+                
+                await Promise.all(uploadPromises);
+
+                displayStatus(`All files uploaded successfully. Ready to run analysis.`);
+                uploadProgress.classList.add('hidden');
+                analysisControls.classList.remove('hidden');
+
+            } catch (error) {
+                displayStatus(`Error: ${error.message}`, true);
+                createClaimBtn.disabled = false;
+                createClaimBtn.textContent = 'Create Claim & Upload Files';
+            }
+        }
+        
+        async function handleTriggerAnalysis() {
+            triggerAnalysisBtn.disabled = true;
+            analysisSpinner.classList.remove('hidden');
+            displayStatus(`Analysis triggered for claim ${currentClaimId}. This can be a long process, please wait...`);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/claims/${currentClaimId}/trigger-analysis`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Analysis trigger failed.');
+                }
+                const resultData = await response.json();
+                statusSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                displayResults(resultData);
+
+            } catch (error) {
+                displayStatus(`Error triggering analysis: ${error.message}`, true);
+                analysisSpinner.classList.add('hidden');
+                triggerAnalysisBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const riskScoreEl = document.getElementById('risk-score');
+            const summaryEl = document.getElementById('summary');
+            const riskFactorsEl = document.querySelector('#risk-factors ul');
+
+            const score = data.fraud_risk_score;
+            riskScoreEl.textContent = `${score}%`;
+            riskScoreEl.className = 'risk-score';
+            if (score > 75) riskScoreEl.classList.add('high');
+            else if (score > 40) riskScoreEl.classList.add('medium');
+            else riskScoreEl.classList.add('low');
+            
+            summaryEl.innerHTML = `<p><strong>Summary:</strong> ${data.summary}</p>`;
+            
+            riskFactorsEl.innerHTML = '';
+            data.key_risk_factors.forEach(factor => {
+                const li = document.createElement('li');
+                li.textContent = factor;
+                riskFactorsEl.appendChild(li);
+            });
+        }
+
+        async function handleCopilotQuery() {
+            const query = copilotInput.value.trim();
+            if (!query) return;
+
+            const chatbox = document.getElementById('copilot-chatbox');
+            chatbox.innerHTML += `<p class="user-msg"><strong>You:</strong> ${query}</p>`;
+            copilotInput.value = '';
+            copilotSendBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/query`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Co-pilot query failed.');
+                }
+                const data = await response.json();
+                chatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.answer}</p>`;
+            } catch (error) {
+                chatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> Sorry, I encountered an error: ${error.message}</p>`;
+            } finally {
+                copilotSendBtn.disabled = false;
+                chatbox.scrollTop = chatbox.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>
