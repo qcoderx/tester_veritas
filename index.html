@@ -22,21 +22,18 @@
         button { padding: 0.75rem 1.5rem; border-radius: 4px; border: none; background-color: #bb86fc; color: #121212; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
         button:disabled { background-color: #555; cursor: not-allowed; color: #888; }
         button:hover:not(:disabled) { background-color: #a06de5; }
-        .hidden { display: none; }
         .spinner { border: 4px solid #444; border-top: 4px solid #bb86fc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 1rem auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status-messages, #upload-progress { margin-top: 1rem; background-color: #2c2c2c; padding: 1rem; border-radius: 4px; }
+        .status-box { margin-top: 1rem; background-color: #2c2c2c; padding: 1rem; border-radius: 4px; }
         .progress-bar { width: 100%; background-color: #444; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
         .progress-bar-inner { width: 0%; height: 10px; background-color: #bb86fc; transition: width 0.3s; }
         .result-card { background-color: #2c2c2c; border-radius: 4px; padding: 1.5rem; }
-        .result-card h3 { margin-top: 0; }
         .risk-score { font-size: 3rem; font-weight: bold; text-align: center; margin: 1rem 0; }
         .risk-score.high { color: #cf6679; }
         .risk-score.medium { color: #f2c75a; }
         .risk-score.low { color: #03dac6; }
         #risk-factors ul { list-style-type: none; padding: 0; }
         #risk-factors li { background-color: #373737; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; }
-        #copilot-section { margin-top: 2rem; }
         #copilot-chatbox { height: 200px; overflow-y: auto; border: 1px solid #444; padding: 1rem; margin-bottom: 1rem; background-color: #222; border-radius: 4px; }
         #copilot-chatbox p { margin: 0 0 0.5rem 0; word-wrap: break-word; }
         .user-msg { text-align: right; color: #e0e0e0; }
@@ -105,12 +102,12 @@
 
             <div id="status-section" class="section">
                 <h2>3. Processing Status</h2>
-                <div id="status-messages"></div>
-                <div id="upload-progress">
+                <div id="status-messages" class="status-box"></div>
+                <div id="upload-progress" class="status-box hidden">
                     <p>Uploading files...</p>
                     <div class="progress-bar"><div id="progress-bar-inner" class="progress-bar-inner"></div></div>
                 </div>
-                <div id="analysis-spinner" class="spinner"></div>
+                <div id="analysis-spinner" class="spinner hidden"></div>
                 <div id="analysis-controls" class="hidden" style="margin-top: 1rem;">
                     <button id="trigger-analysis-btn">Run Final Analysis</button>
                 </div>
@@ -144,25 +141,46 @@
         let conversationId = null;
         let parentMessageId = null;
 
-        const authSection = document.getElementById('auth-section');
-        const dashboardSection = document.getElementById('dashboard-section');
-        const claimSection = document.getElementById('claim-section');
-        const statusSection = document.getElementById('status-section');
-        const resultsSection = document.getElementById('results-section');
+        const sections = {
+            auth: document.getElementById('auth-section'),
+            dashboard: document.getElementById('dashboard-section'),
+            claim: document.getElementById('claim-section'),
+            status: document.getElementById('status-section'),
+            results: document.getElementById('results-section')
+        };
 
         function showScreen(screenId) {
-            ['auth-section', 'dashboard-section', 'claim-section', 'status-section', 'results-section'].forEach(id => {
-                document.getElementById(id).classList.remove('active');
-            });
-            document.getElementById(screenId).classList.add('active');
+            for (const key in sections) {
+                sections[key].classList.remove('active');
+            }
+            sections[screenId].classList.add('active');
         }
 
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
         document.addEventListener('DOMContentLoaded', () => {
-            showScreen('auth-section');
-            document.getElementById('show-signup').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('signup-form').classList.remove('hidden'); });
-            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); });
+            showScreen('auth');
+            document.getElementById('show-signup').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-form').style.display = 'none'; document.getElementById('signup-form').style.display = 'block'; });
+            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-form').style.display = 'none'; document.getElementById('login-form').style.display = 'block'; });
             document.getElementById('login-btn').addEventListener('click', handleLogin);
             document.getElementById('signup-btn').addEventListener('click', handleSignup);
+            document.getElementById('show-claim-form-btn').addEventListener('click', () => showScreen('claim'));
+            document.getElementById('back-to-dashboard-btn').addEventListener('click', handleFetchClaims);
+            document.getElementById('back-to-dashboard-from-results-btn').addEventListener('click', handleFetchClaims);
+            
+            const dropArea = document.getElementById('file-drop-area');
+            dropArea.addEventListener('click', () => document.getElementById('file-input').click());
+            document.getElementById('file-input').addEventListener('change', (e) => handleFiles(e.target.files));
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, preventDefaults, false));
+            ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('dragover'), false));
+            ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('dragover'), false));
+            dropArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+            document.getElementById('create-claim-btn').addEventListener('click', handleCreateClaimAndUpload);
+            document.getElementById('trigger-analysis-btn').addEventListener('click', handleTriggerAnalysis);
+            document.getElementById('copilot-send-btn').addEventListener('click', handleCopilotQuery);
+            document.getElementById('copilot-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCopilotQuery(); }
+            });
         });
 
         async function handleLogin() {
@@ -172,18 +190,12 @@
             formData.append('username', email);
             formData.append('password', password);
             try {
-                const response = await fetch(`${API_BASE_URL}/auth/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData
-                });
+                const response = await fetch(`${API_BASE_URL}/auth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
                 if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Login failed.'); }
                 const data = await response.json();
                 accessToken = data.access_token;
                 await handleFetchClaims();
-            } catch (error) {
-                alert(`Login Error: ${error.message}`);
-            }
+            } catch (error) { alert(`Login Error: ${error.message}`); }
         }
 
         async function handleSignup() {
@@ -191,21 +203,15 @@
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
             try {
-                const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name: fullName, email: email, password: password })
-                });
+                const response = await fetch(`${API_BASE_URL}/auth/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name: fullName, email: email, password: password }) });
                 if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Sign up failed.'); }
                 alert('Sign up successful! Please log in.');
                 document.getElementById('show-login').click();
-            } catch(error) {
-                alert(`Sign Up Error: ${error.message}`);
-            }
+            } catch(error) { alert(`Sign Up Error: ${error.message}`); }
         }
 
         async function handleFetchClaims() {
-            showScreen('dashboard-section');
+            showScreen('dashboard');
             const tableBody = document.querySelector('#claims-table tbody');
             tableBody.innerHTML = '<tr><td colspan="4">Loading claims...</td></tr>';
             try {
@@ -216,16 +222,12 @@
                 if (claims.length === 0) {
                     tableBody.innerHTML = '<tr><td colspan="4">No claims found.</td></tr>';
                 } else {
-                    claims.forEach(claim => {
+                    claims.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).forEach(claim => {
                         const row = tableBody.insertRow();
                         row.innerHTML = `<td>${claim.id.substring(0, 8)}...</td><td><span class="status status-${String(claim.status).toLowerCase()}">${claim.status}</span></td><td>${claim.fraud_risk_score !== null ? `${claim.fraud_risk_score}%` : 'N/A'}</td><td>${new Date(claim.created_at).toLocaleString()}</td>`;
                     });
                 }
-            } catch (error) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="color: #cf6679;">Error: ${error.message}</td></tr>`;
-            }
-            document.getElementById('show-claim-form-btn').onclick = () => showScreen('claim-section');
-            document.getElementById('back-to-dashboard-btn').onclick = handleFetchClaims;
+            } catch (error) { tableBody.innerHTML = `<tr><td colspan="4" style="color: #cf6679;">Error: ${error.message}</td></tr>`; }
         }
 
         function handleFiles(files) {
@@ -246,15 +248,6 @@
             }
         }
         
-        document.getElementById('file-drop-area').addEventListener('click', () => document.getElementById('file-input').click());
-        document.getElementById('file-input').addEventListener('change', (e) => handleFiles(e.target.files));
-        const dropArea = document.getElementById('file-drop-area');
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, (ev) => {ev.preventDefault(); ev.stopPropagation();}, false));
-        ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('dragover'), false));
-        ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('dragover'), false));
-        dropArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
-        document.getElementById('create-claim-btn').addEventListener('click', handleCreateClaimAndUpload);
-        
         async function handleCreateClaimAndUpload() {
             const createClaimBtn = document.getElementById('create-claim-btn');
             createClaimBtn.disabled = true;
@@ -265,7 +258,7 @@
                 if (!createResponse.ok) { const error = await createResponse.json(); throw new Error(error.detail || 'Failed to create claim.'); }
                 const { claim_id, upload_urls } = await createResponse.json();
                 currentClaimId = claim_id;
-                showScreen('status-section');
+                showScreen('status');
                 const statusMessages = document.getElementById('status-messages');
                 statusMessages.innerHTML = `<p>Claim ${claim_id} created. Uploading ${selectedFiles.length} files...</p>`;
                 const uploadProgress = document.getElementById('upload-progress');
@@ -283,13 +276,12 @@
                     progressBarInner.style.width = `${(uploadedCount / selectedFiles.length) * 100}%`;
                 }));
                 await Promise.all(uploadPromises);
-                statusMessages.innerHTML = `<p>All files uploaded. Ready to run analysis.</p>`;
+                statusMessages.innerHTML = `<p>All files uploaded successfully. Ready to run analysis.</p>`;
                 uploadProgress.classList.add('hidden');
-                const analysisControls = document.getElementById('analysis-controls');
-                analysisControls.classList.remove('hidden');
-                document.getElementById('trigger-analysis-btn').onclick = handleTriggerAnalysis;
+                document.getElementById('analysis-controls').classList.remove('hidden');
             } catch (error) {
-                document.getElementById('status-messages').innerHTML = `<p style="color: #cf6679;">Error: ${error.message}</p>`;
+                showScreen('claim');
+                alert(`Error: ${error.message}`);
                 createClaimBtn.disabled = false;
                 createClaimBtn.textContent = 'Create Claim & Upload Files';
             }
@@ -304,7 +296,7 @@
                 const response = await fetch(`${API_BASE_URL}/claims/${currentClaimId}/trigger-analysis`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
                 if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Analysis trigger failed.'); }
                 const resultData = await response.json();
-                showScreen('results-section');
+                showScreen('results');
                 displayResults(resultData);
                 await handleStartCopilot();
             } catch (error) {
@@ -331,58 +323,49 @@
                 li.textContent = factor;
                 riskFactorsEl.appendChild(li);
             });
-            document.getElementById('back-to-dashboard-from-results-btn').onclick = handleFetchClaims;
         }
-    // ... (DOM elements and most event listeners are the same) ...
-
-    async function handleStartCopilot() {
-        const copilotChatbox = document.getElementById('copilot-chatbox');
-        copilotChatbox.innerHTML = '<p class="ai-msg"><i>Initializing Co-pilot...</i></p>';
-        try {
-            const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/start-conversation`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
-            if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Failed to start conversation.'); }
-            const data = await response.json();
-            conversationId = data.conversationId;
-            parentMessageId = data.systemMessageId; // <-- SAVE THE FIRST PARENT ID
-            copilotChatbox.innerHTML = `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.systemMessage}</p>`;
-        } catch (error) {
-            copilotChatbox.innerHTML = `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Error initializing: ${error.message}</p>`;
+        
+        async function handleStartCopilot() {
+            const copilotChatbox = document.getElementById('copilot-chatbox');
+            copilotChatbox.innerHTML = '<p class="ai-msg"><i>Initializing Co-pilot and loading claim context...</i></p>';
+            try {
+                const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/start-conversation`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
+                if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Failed to start conversation.'); }
+                const data = await response.json();
+                conversationId = data.conversationId;
+                parentMessageId = data.systemMessageId;
+                copilotChatbox.innerHTML = `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.systemMessage}</p>`;
+            } catch (error) {
+                copilotChatbox.innerHTML = `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Error initializing: ${error.message}</p>`;
+            }
         }
-    }
-    
-    async function handleCopilotQuery() {
-        const copilotInput = document.getElementById('copilot-input');
-        const copilotSendBtn = document.getElementById('copilot-send-btn');
-        const copilotChatbox = document.getElementById('copilot-chatbox');
-        const query = copilotInput.value.trim();
-        if (!query || !conversationId) return;
-
-        copilotChatbox.innerHTML += `<p class="user-msg"><strong>You:</strong> ${query}</p>`;
-        copilotInput.value = '';
-        copilotSendBtn.disabled = true;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/query`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    query: query, 
-                    conversationId: conversationId,
-                    parentMessageId: parentMessageId // <-- SEND THE LAST MESSAGE ID
-                })
-            });
-            if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Co-pilot query failed.'); }
-            const data = await response.json();
-            parentMessageId = data.systemMessageId; // <-- UPDATE TO THE NEW MESSAGE ID FOR THE NEXT TURN
-            copilotChatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.answer}</p>`;
-        } catch (error) {
-            copilotChatbox.innerHTML += `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Sorry, I encountered an error: ${error.message}</p>`;
-        } finally {
-            copilotSendBtn.disabled = false;
-            copilotChatbox.scrollTop = copilotChatbox.scrollHeight;
+        
+        async function handleCopilotQuery() {
+            const copilotInput = document.getElementById('copilot-input');
+            const copilotSendBtn = document.getElementById('copilot-send-btn');
+            const copilotChatbox = document.getElementById('copilot-chatbox');
+            const query = copilotInput.value.trim();
+            if (!query || !conversationId) return;
+            copilotChatbox.innerHTML += `<p class="user-msg"><strong>You:</strong> ${query}</p>`;
+            copilotInput.value = '';
+            copilotSendBtn.disabled = true;
+            try {
+                const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/query`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query, conversationId: conversationId, parentMessageId: parentMessageId })
+                });
+                if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Co-pilot query failed.'); }
+                const data = await response.json();
+                parentMessageId = data.systemMessageId;
+                copilotChatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.answer}</p>`;
+            } catch (error) {
+                copilotChatbox.innerHTML += `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Sorry, I encountered an error: ${error.message}</p>`;
+            } finally {
+                copilotSendBtn.disabled = false;
+                copilotChatbox.scrollTop = copilotChatbox.scrollHeight;
+            }
         }
-    }
-</script>
+    </script>
 </body>
 </html>
-
