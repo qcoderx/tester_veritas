@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Veritas AI - Live Test Client</title>
+    <title>Veritas AI - Live Client</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #e0e0e0; display: flex; justify-content: center; align-items: flex-start; padding: 2rem; min-height: 100vh; margin: 0; }
         .container { width: 100%; max-width: 800px; background-color: #1e1e1e; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); overflow: hidden; }
         .header { background-color: #333; padding: 1rem 1.5rem; border-bottom: 1px solid #444; }
         .header h1 { margin: 0; font-size: 1.5rem; }
         .main-content { padding: 1.5rem; }
-        .section { margin-bottom: 2rem; border-bottom: 1px solid #333; padding-bottom: 1.5rem; }
+        .section { display: none; margin-bottom: 2rem; border-bottom: 1px solid #333; padding-bottom: 1.5rem; }
+        .section.active { display: block; }
         .section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         h2 { color: #bb86fc; margin-top: 0; border-bottom: 1px solid #373737; padding-bottom: 0.5rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
@@ -47,19 +48,90 @@
         td .status { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
         .status-analyzing { background-color: #3a3d98; color: #fff; }
         .status-ready_for_review { background-color: #03dac6; color: #121212; }
+        .status-upload_in_progress { background-color: #f2c75a; color: #121212; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header"><h1>Veritas AI - Live Test Client</h1></div>
+        <div class="header"><h1>Veritas AI - Live Client</h1></div>
         <div class="main-content">
 
-            <div id="auth-section" class="section"></div>
-            <div id="dashboard-section" class="section hidden"></div>
-            <div id="claim-section" class="section hidden"></div>
-            <div id="status-section" class="section hidden"></div>
-            <div id="results-section" class="section hidden"></div>
+            <div id="auth-section" class="section">
+                <div id="login-form">
+                    <h2>1. Login</h2>
+                    <label for="login-email">Username (Email):</label>
+                    <input type="email" id="login-email" value="bola@example.com">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" value="password123">
+                    <button id="login-btn">Login</button>
+                    <p><a href="#" id="show-signup" class="auth-toggle">Don't have an account? Sign Up</a></p>
+                </div>
+                <div id="signup-form" class="hidden">
+                    <h2>1. Sign Up</h2>
+                    <label for="signup-name">Full Name:</label>
+                    <input type="text" id="signup-name" placeholder="e.g., Bola Adjuster">
+                    <label for="signup-email">Email:</label>
+                    <input type="email" id="signup-email" placeholder="e.g., bola@insuranceco.com">
+                    <label for="signup-password">Password:</label>
+                    <input type="password" id="signup-password">
+                    <button id="signup-btn">Sign Up</button>
+                    <p><a href="#" id="show-login" class="auth-toggle">Already have an account? Login</a></p>
+                </div>
+            </div>
 
+            <div id="dashboard-section" class="section">
+                <h2>Claims Dashboard</h2>
+                <button id="show-claim-form-btn">Create New Claim</button>
+                <table id="claims-table">
+                    <thead><tr><th>Claim ID</th><th>Status</th><th>Risk Score</th><th>Created At</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="claim-section" class="section">
+                <h2>2. Submit New Claim</h2>
+                <button id="back-to-dashboard-btn" style="margin-bottom: 1rem;">Back to Dashboard</button>
+                <label for="additional-info">Additional Info / Adjuster's Notes:</label>
+                <textarea id="additional-info" placeholder="Add any extra context or suspicions here..."></textarea>
+                <div id="file-drop-area" class="file-drop-area">
+                    <p>Drag & Drop files here, or click to select.</p>
+                    <input type="file" id="file-input" multiple hidden>
+                </div>
+                <div id="file-list"></div>
+                <div id="submission-controls" class="hidden" style="margin-top: 1rem;">
+                    <button id="create-claim-btn">Create Claim & Upload Files</button>
+                </div>
+            </div>
+
+            <div id="status-section" class="section">
+                <h2>3. Processing Status</h2>
+                <div id="status-messages"></div>
+                <div id="upload-progress">
+                    <p>Uploading files...</p>
+                    <div class="progress-bar"><div id="progress-bar-inner" class="progress-bar-inner"></div></div>
+                </div>
+                <div id="analysis-spinner" class="spinner"></div>
+                <div id="analysis-controls" class="hidden" style="margin-top: 1rem;">
+                    <button id="trigger-analysis-btn">Run Final Analysis</button>
+                </div>
+            </div>
+            
+            <div id="results-section" class="section">
+                <h2>4. Analysis Complete</h2>
+                <button id="back-to-dashboard-from-results-btn" style="margin-bottom: 1rem;">Back to Dashboard</button>
+                <div class="result-card">
+                    <h3>Fraud Risk Report</h3>
+                    <div id="risk-score" class="risk-score"></div>
+                    <div id="summary"></div>
+                    <div id="risk-factors"><h4>Key Risk Factors:</h4><ul></ul></div>
+                </div>
+                <div id="copilot-section">
+                    <h3>AI Co-pilot</h3>
+                    <div id="copilot-chatbox"></div>
+                    <textarea id="copilot-input" placeholder="Ask a question about the claim..."></textarea>
+                    <button id="copilot-send-btn" style="margin-top: 0.5rem;">Send</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -77,46 +149,20 @@
         const statusSection = document.getElementById('status-section');
         const resultsSection = document.getElementById('results-section');
 
-        // --- TEMPLATES ---
-        const authTemplate = `...`; // Templates remain the same
-        const claimFormTemplate = `...`;
-        const statusTemplate = `...`;
-        const resultsTemplate = `...`;
-        const dashboardTemplate = `
-            <h2>Claims Dashboard</h2>
-            <button id="show-claim-form-btn">Create New Claim</button>
-            <table id="claims-table">
-                <thead><tr><th>Claim ID</th><th>Status</th><th>Risk Score</th><th>Created At</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        `;
-
-        // --- Functions ---
-        function showScreen(screen) {
-            [authSection, dashboardSection, claimSection, statusSection, resultsSection].forEach(s => s.classList.add('hidden'));
-            screen.classList.remove('hidden');
-        }
-
-        // --- ALL EVENT LISTENER SETUP FUNCTIONS ARE FILLED ---
-        function setupAuthListeners() { /* ... */ }
-        function setupClaimFormListeners() { /* ... */ }
-        function setupStatusListeners() { /* ... */ }
-        function setupResultsListeners() { /* ... */ }
-        function setupDashboardListeners() {
-            document.getElementById('show-claim-form-btn').addEventListener('click', () => {
-                claimSection.innerHTML = claimFormTemplate;
-                setupClaimFormListeners();
-                showScreen(claimSection);
+        function showScreen(screenId) {
+            ['auth-section', 'dashboard-section', 'claim-section', 'status-section', 'results-section'].forEach(id => {
+                document.getElementById(id).classList.remove('active');
             });
+            document.getElementById(screenId).classList.add('active');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            authSection.innerHTML = authTemplate;
-            setupAuthListeners();
-            showScreen(authSection);
+            showScreen('auth-section');
+            document.getElementById('show-signup').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-form').classList.add('hidden'); document.getElementById('signup-form').classList.remove('hidden'); });
+            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('signup-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden'); });
+            document.getElementById('login-btn').addEventListener('click', handleLogin);
+            document.getElementById('signup-btn').addEventListener('click', handleSignup);
         });
-        
-        // --- ALL HANDLER FUNCTIONS ARE NOW COMPLETE ---
 
         async function handleLogin() {
             const email = document.getElementById('login-email').value;
@@ -124,7 +170,6 @@
             const formData = new URLSearchParams();
             formData.append('username', email);
             formData.append('password', password);
-
             try {
                 const response = await fetch(`${API_BASE_URL}/auth/token`, {
                     method: 'POST',
@@ -159,9 +204,7 @@
         }
 
         async function handleFetchClaims() {
-            dashboardSection.innerHTML = dashboardTemplate;
-            setupDashboardListeners();
-            showScreen(dashboardSection);
+            showScreen('dashboard-section');
             const tableBody = document.querySelector('#claims-table tbody');
             tableBody.innerHTML = '<tr><td colspan="4">Loading claims...</td></tr>';
             try {
@@ -174,13 +217,42 @@
                 } else {
                     claims.forEach(claim => {
                         const row = tableBody.insertRow();
-                        row.innerHTML = `<td>${claim.id.substring(0, 8)}...</td><td><span class="status status-${claim.status.toLowerCase()}">${claim.status}</span></td><td>${claim.fraud_risk_score !== null ? `${claim.fraud_risk_score}%` : 'N/A'}</td><td>${new Date(claim.created_at).toLocaleString()}</td>`;
+                        row.innerHTML = `<td>${claim.id.substring(0, 8)}...</td><td><span class="status status-${String(claim.status).toLowerCase()}">${claim.status}</span></td><td>${claim.fraud_risk_score !== null ? `${claim.fraud_risk_score}%` : 'N/A'}</td><td>${new Date(claim.created_at).toLocaleString()}</td>`;
                     });
                 }
             } catch (error) {
                 tableBody.innerHTML = `<tr><td colspan="4" style="color: #cf6679;">Error: ${error.message}</td></tr>`;
             }
+            document.getElementById('show-claim-form-btn').onclick = () => showScreen('claim-section');
+            document.getElementById('back-to-dashboard-btn').onclick = handleFetchClaims;
         }
+
+        function handleFiles(files) {
+            selectedFiles = [...files];
+            const fileListEl = document.getElementById('file-list');
+            fileListEl.innerHTML = '';
+            if (selectedFiles.length > 0) {
+                const list = document.createElement('ul');
+                selectedFiles.forEach((file, i) => {
+                    const item = document.createElement('li');
+                    item.textContent = `${i + 1}. ${file.name}`;
+                    list.appendChild(item);
+                });
+                fileListEl.appendChild(list);
+                document.getElementById('submission-controls').classList.remove('hidden');
+            } else {
+                document.getElementById('submission-controls').classList.add('hidden');
+            }
+        }
+        
+        document.getElementById('file-drop-area').addEventListener('click', () => document.getElementById('file-input').click());
+        document.getElementById('file-input').addEventListener('change', (e) => handleFiles(e.target.files));
+        const dropArea = document.getElementById('file-drop-area');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, (ev) => {ev.preventDefault(); ev.stopPropagation();}, false));
+        ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('dragover'), false));
+        dropArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+        document.getElementById('create-claim-btn').addEventListener('click', handleCreateClaimAndUpload);
         
         async function handleCreateClaimAndUpload() {
             const createClaimBtn = document.getElementById('create-claim-btn');
@@ -192,10 +264,9 @@
                 if (!createResponse.ok) { const error = await createResponse.json(); throw new Error(error.detail || 'Failed to create claim.'); }
                 const { claim_id, upload_urls } = await createResponse.json();
                 currentClaimId = claim_id;
-                statusSection.innerHTML = statusTemplate;
-                setupStatusListeners();
-                showScreen(statusSection);
-                displayStatus(`Claim ${claim_id} created. Uploading ${selectedFiles.length} files...`);
+                showScreen('status-section');
+                const statusMessages = document.getElementById('status-messages');
+                statusMessages.innerHTML = `<p>Claim ${claim_id} created. Uploading ${selectedFiles.length} files...</p>`;
                 const uploadProgress = document.getElementById('upload-progress');
                 uploadProgress.classList.remove('hidden');
                 const progressBarInner = document.getElementById('progress-bar-inner');
@@ -211,11 +282,13 @@
                     progressBarInner.style.width = `${(uploadedCount / selectedFiles.length) * 100}%`;
                 }));
                 await Promise.all(uploadPromises);
-                displayStatus(`All files uploaded successfully. Ready to run analysis.`);
+                statusMessages.innerHTML = `<p>All files uploaded. Ready to run analysis.</p>`;
                 uploadProgress.classList.add('hidden');
-                document.getElementById('analysis-controls').classList.remove('hidden');
+                const analysisControls = document.getElementById('analysis-controls');
+                analysisControls.classList.remove('hidden');
+                document.getElementById('trigger-analysis-btn').onclick = handleTriggerAnalysis;
             } catch (error) {
-                displayStatus(`Error: ${error.message}`, true);
+                document.getElementById('status-messages').innerHTML = `<p style="color: #cf6679;">Error: ${error.message}</p>`;
                 createClaimBtn.disabled = false;
                 createClaimBtn.textContent = 'Create Claim & Upload Files';
             }
@@ -225,18 +298,16 @@
             const triggerAnalysisBtn = document.getElementById('trigger-analysis-btn');
             triggerAnalysisBtn.disabled = true;
             document.getElementById('analysis-spinner').classList.remove('hidden');
-            displayStatus(`Analysis triggered for claim ${currentClaimId}. This can be a long process, please wait...`);
+            document.getElementById('status-messages').innerHTML = `<p>Analysis triggered for claim ${currentClaimId}. This can be a long process, please wait...</p>`;
             try {
                 const response = await fetch(`${API_BASE_URL}/claims/${currentClaimId}/trigger-analysis`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
                 if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Analysis trigger failed.'); }
                 const resultData = await response.json();
-                resultsSection.innerHTML = resultsTemplate;
-                setupResultsListeners();
-                showScreen(resultsSection);
+                showScreen('results-section');
                 displayResults(resultData);
                 await handleStartCopilot();
             } catch (error) {
-                displayStatus(`Error triggering analysis: ${error.message}`, true);
+                document.getElementById('status-messages').innerHTML = `<p style="color: #cf6679;">Error triggering analysis: ${error.message}</p>`;
                 document.getElementById('analysis-spinner').classList.add('hidden');
                 triggerAnalysisBtn.disabled = false;
             }
@@ -254,11 +325,12 @@
             else riskScoreEl.classList.add('low');
             summaryEl.innerHTML = `<p><strong>Summary:</strong> ${data.summary}</p>`;
             riskFactorsEl.innerHTML = '';
-            data.key_risk_factors.forEach(factor => {
+            (data.key_risk_factors || []).forEach(factor => {
                 const li = document.createElement('li');
                 li.textContent = factor;
                 riskFactorsEl.appendChild(li);
             });
+            document.getElementById('back-to-dashboard-from-results-btn').onclick = handleFetchClaims;
         }
         
         async function handleStartCopilot() {
@@ -273,6 +345,10 @@
             } catch (error) {
                 copilotChatbox.innerHTML = `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Error initializing: ${error.message}</p>`;
             }
+            document.getElementById('copilot-send-btn').onclick = handleCopilotQuery;
+            document.getElementById('copilot-input').onkeypress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCopilotQuery(); }
+            };
         }
         
         async function handleCopilotQuery() {
@@ -298,31 +374,6 @@
             } finally {
                 copilotSendBtn.disabled = false;
                 copilotChatbox.scrollTop = copilotChatbox.scrollHeight;
-            }
-        }
-
-        // --- Utility Functions ---
-        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-        function displayStatus(message, isError = false) { document.getElementById('status-messages').innerHTML = `<p style="color: ${isError ? '#cf6679' : '#03dac6'};">${message}</p>`; }
-        function handleFiles(files) { selectedFiles = [...files]; updateFileList(); }
-
-        function updateFileList() {
-            const fileListEl = document.getElementById('file-list');
-            const submissionControlsEl = document.getElementById('submission-controls');
-            if (fileListEl) {
-                fileListEl.innerHTML = '';
-                if (selectedFiles.length > 0) {
-                    const list = document.createElement('ul');
-                    selectedFiles.forEach((file, i) => {
-                        const item = document.createElement('li');
-                        item.textContent = `${i + 1}. ${file.name}`;
-                        list.appendChild(item);
-                    });
-                    fileListEl.appendChild(list);
-                    submissionControlsEl.classList.remove('hidden');
-                } else {
-                    submissionControlsEl.classList.add('hidden');
-                }
             }
         }
     </script>
