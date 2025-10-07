@@ -142,6 +142,7 @@
         let selectedFiles = [];
         let currentClaimId = null;
         let conversationId = null;
+        let parentMessageId = null;
 
         const authSection = document.getElementById('auth-section');
         const dashboardSection = document.getElementById('dashboard-section');
@@ -332,50 +333,56 @@
             });
             document.getElementById('back-to-dashboard-from-results-btn').onclick = handleFetchClaims;
         }
-        
-        async function handleStartCopilot() {
-            const copilotChatbox = document.getElementById('copilot-chatbox');
-            copilotChatbox.innerHTML = '<p class="ai-msg"><i>Initializing Co-pilot...</i></p>';
-            try {
-                const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/start-conversation`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
-                if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Failed to start conversation.'); }
-                const data = await response.json();
-                conversationId = data.conversationId;
-                copilotChatbox.innerHTML = `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.systemMessage}</p>`;
-            } catch (error) {
-                copilotChatbox.innerHTML = `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Error initializing: ${error.message}</p>`;
-            }
-            document.getElementById('copilot-send-btn').onclick = handleCopilotQuery;
-            document.getElementById('copilot-input').onkeypress = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCopilotQuery(); }
-            };
+    // ... (DOM elements and most event listeners are the same) ...
+
+    async function handleStartCopilot() {
+        const copilotChatbox = document.getElementById('copilot-chatbox');
+        copilotChatbox.innerHTML = '<p class="ai-msg"><i>Initializing Co-pilot...</i></p>';
+        try {
+            const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/start-conversation`, { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } });
+            if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Failed to start conversation.'); }
+            const data = await response.json();
+            conversationId = data.conversationId;
+            parentMessageId = data.systemMessageId; // <-- SAVE THE FIRST PARENT ID
+            copilotChatbox.innerHTML = `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.systemMessage}</p>`;
+        } catch (error) {
+            copilotChatbox.innerHTML = `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Error initializing: ${error.message}</p>`;
         }
-        
-        async function handleCopilotQuery() {
-            const copilotInput = document.getElementById('copilot-input');
-            const copilotSendBtn = document.getElementById('copilot-send-btn');
-            const copilotChatbox = document.getElementById('copilot-chatbox');
-            const query = copilotInput.value.trim();
-            if (!query || !conversationId) return;
-            copilotChatbox.innerHTML += `<p class="user-msg"><strong>You:</strong> ${query}</p>`;
-            copilotInput.value = '';
-            copilotSendBtn.disabled = true;
-            try {
-                const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/query`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: query, conversationId: conversationId })
-                });
-                if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Co-pilot query failed.'); }
-                const data = await response.json();
-                copilotChatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.answer}</p>`;
-            } catch (error) {
-                copilotChatbox.innerHTML += `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Sorry, I encountered an error: ${error.message}</p>`;
-            } finally {
-                copilotSendBtn.disabled = false;
-                copilotChatbox.scrollTop = copilotChatbox.scrollHeight;
-            }
+    }
+    
+    async function handleCopilotQuery() {
+        const copilotInput = document.getElementById('copilot-input');
+        const copilotSendBtn = document.getElementById('copilot-send-btn');
+        const copilotChatbox = document.getElementById('copilot-chatbox');
+        const query = copilotInput.value.trim();
+        if (!query || !conversationId) return;
+
+        copilotChatbox.innerHTML += `<p class="user-msg"><strong>You:</strong> ${query}</p>`;
+        copilotInput.value = '';
+        copilotSendBtn.disabled = true;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/investigate/${currentClaimId}/query`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    query: query, 
+                    conversationId: conversationId,
+                    parentMessageId: parentMessageId // <-- SEND THE LAST MESSAGE ID
+                })
+            });
+            if (!response.ok) { const error = await response.json(); throw new Error(error.detail || 'Co-pilot query failed.'); }
+            const data = await response.json();
+            parentMessageId = data.systemMessageId; // <-- UPDATE TO THE NEW MESSAGE ID FOR THE NEXT TURN
+            copilotChatbox.innerHTML += `<p class="ai-msg"><strong>Co-pilot:</strong> ${data.answer}</p>`;
+        } catch (error) {
+            copilotChatbox.innerHTML += `<p class="ai-msg" style="color: #cf6679;"><strong>Co-pilot:</strong> Sorry, I encountered an error: ${error.message}</p>`;
+        } finally {
+            copilotSendBtn.disabled = false;
+            copilotChatbox.scrollTop = copilotChatbox.scrollHeight;
         }
-    </script>
+    }
+</script>
 </body>
 </html>
+
